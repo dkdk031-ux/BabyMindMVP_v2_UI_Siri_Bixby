@@ -19,33 +19,31 @@
 | `bixby/` | 갤럭시 홈 미니 연결 가이드 + Bixby 캡슐 초안 |
 | `BabyMindMVP_v2_UI_Siri_Bixby/` | 이전 iOS(SwiftUI) 버전 — 참고용, 필요 없으면 삭제 |
 
-## 빠른 시작 (거의 자동)
+## 빠른 시작 — 할 일은 2개뿐
 
-### 1. PC: 서버 켜기 — 더블클릭
-| 파일 | 하는 일 |
-|---|---|
-| `start_server.bat` | 처음엔 자동 설치(가상환경·패키지·`.env`·인증 키 생성) 후 서버 실행. 꺼지면 자동 재시작 |
-| `install_autostart.bat` | **PC 켤 때마다 서버 자동 실행** 등록 + 방화벽 8000 포트 허용(관리자 권한으로 실행) |
-| `uninstall_autostart.bat` | 자동 실행 해제 |
-| `start_server.sh` | Mac/Linux용 |
+[Releases → latest](https://github.com/dkdk031-ux/BabyMindMVP_v2_UI_Siri_Bixby/releases/tag/latest) 에서:
 
-필요한 것: [Python](https://www.python.org/downloads/) 설치 (설치 화면에서 **Add python.exe to PATH** 체크).
-서버 창과 `server/connection.txt`에 앱용 주소·인증 키가 표시됩니다.
+1. **PC**: `BabyMind.exe` 받아서 더블클릭 (처음 한 번만)
+   - 파이썬 설치 불필요. 자동으로 설치(`%LOCALAPPDATA%\BabyMind`) → PC 켤 때 자동 실행 등록 → 브라우저에 앱 화면이 열림
+   - "Windows의 PC 보호" → **추가 정보 → 실행**, 방화벽 창 → **허용** (휴대폰 접속용)
+   - PC에서도 `http://localhost:8000` 으로 앱과 같은 화면 사용 가능
+2. **휴대폰**: `BabyMind.apk` 눌러 설치 → 앱이 같은 Wi-Fi의 PC를 자동으로 찾아 연결
 
-### 2. 휴대폰: 앱 설치 — 빌드 자동
-GitHub에 코드가 올라가면 **GitHub Actions가 APK를 자동으로 빌드**합니다.
-휴대폰 브라우저로 저장소의 **Releases → `latest-apk` → BabyMind.apk** 를 눌러 설치하세요.
-(처음 한 번 "출처를 알 수 없는 앱 설치 허용" 필요)
+코드가 바뀌면 GitHub Actions가 exe/apk를 자동으로 다시 빌드하고, 실제 Windows에서 설치·기록 테스트까지 한 뒤 `latest`에 올립니다.
+업데이트는 새 `BabyMind.exe`를 다시 더블클릭하면 이전 버전을 끄고 교체합니다 (기록은 유지).
 
-> 업데이트 APK를 기존 앱 위에 덮어 설치하려면 서명 키를 GitHub Secret으로 한 번 등록하세요 (아래 "선택 설정").
-> 등록하지 않으면 업데이트할 때 기존 앱을 지우고 설치해야 합니다. 기록은 서버에 있어서 지워지지 않습니다.
+<details><summary>개발용: 소스에서 직접 실행 (start_server.bat / .sh)</summary>
 
-### 3. 앱 실행 — 연결 자동
+`start_server.bat`(Windows) / `start_server.sh`(Mac·Linux): Python 설치 후 더블클릭하면 가상환경·패키지·`.env`·인증 키를 자동 준비하고 서버를 실행합니다.
+`install_autostart.bat`: 소스 실행 방식을 PC 시작 시 자동 실행으로 등록합니다.
+</details>
+
+### 앱 연결 — 자동
 앱이 **같은 Wi-Fi에서 PC 서버를 자동으로 찾아** 주소와 인증 키를 설정합니다.
 (PC IP가 바뀌어도 다시 자동으로 찾음. 못 찾으면 설정 화면에서 직접 입력)
 
-### 4. Bixby용 공개 주소 — 자동
-`server/.env`에서 `TUNNEL=1` 로 바꾸고 서버를 다시 켜면 cloudflared를 자동으로 내려받아
+### Bixby용 공개 주소 — 자동
+설정 파일(`%LOCALAPPDATA%\BabyMind\.env`)에서 `TUNNEL=1` 로 바꾸고 BabyMind를 다시 켜면 cloudflared를 자동으로 내려받아
 공개 HTTPS 주소를 만들고 화면에 표시합니다.
 
 ### 선택 설정
