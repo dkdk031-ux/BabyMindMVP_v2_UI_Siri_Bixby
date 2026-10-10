@@ -15,7 +15,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.babymind.babymind"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -29,11 +28,23 @@ android {
         versionName = flutter.versionName
     }
 
+    // 고정 서명 키: 환경변수(BABYMIND_KEYSTORE 등, GitHub Secret에서 주입)가 있으면 사용.
+    // 없으면 디버그 키로 서명 → 빌드 PC가 바뀌면 기존 앱을 지우고 설치해야 함.
+    val keystorePath = System.getenv("BABYMIND_KEYSTORE")
+    signingConfigs {
+        if (keystorePath != null && file(keystorePath).exists()) {
+            create("home") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("BABYMIND_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("BABYMIND_KEY_ALIAS") ?: "babymind"
+                keyPassword = System.getenv("BABYMIND_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("home") ?: signingConfigs.getByName("debug")
         }
     }
 }

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -129,6 +131,43 @@ class Api {
     } catch (e) {
       throw ApiException('서버에 연결할 수 없어요. 주소와 Wi-Fi를 확인해 주세요.\n($e)');
     }
+  }
+
+  /// 같은 Wi-Fi 안에서 BabyMind 서버를 찾아 주소와 인증 키를 자동 저장. 찾으면 true.
+  Future<bool> discover({int port = 8000}) async {
+    final prefixes = <String>{};
+    for (final nic in await NetworkInterface.list(type: InternetAddressType.IPv4)) {
+      for (final a in nic.addresses) {
+        final p = a.address.split('.');
+        final first = int.parse(p[0]), second = int.parse(p[1]);
+        final private = first == 10 || (first == 192 && second == 168) || (first == 172 && second >= 16 && second <= 31);
+        if (private) prefixes.add('${p[0]}.${p[1]}.${p[2]}');
+      }
+    }
+    // 이전에 쓰던 주소가 있으면 먼저 확인
+    final candidates = <String>[
+      if (baseUrl.isNotEmpty) baseUrl,
+      for (final pre in prefixes) for (var i = 1; i < 255; i++) 'http://$pre.$i:$port',
+    ];
+    final found = Completer<Map<String, String>?>();
+    var pending = candidates.length;
+    final client = http.Client();
+    for (final url in candidates) {
+      client.get(Uri.parse('$url/pair')).timeout(const Duration(seconds: 2)).then((res) {
+        final j = jsonDecode(utf8.decode(res.bodyBytes));
+        if (j is Map && j['app'] == 'babymind' && !found.isCompleted) {
+          found.complete({'url': url, 'token': '${j['token'] ?? ''}'});
+        }
+      }).catchError((_) {}).whenComplete(() {
+        if (--pending == 0 && !found.isCompleted) found.complete(null);
+      });
+    }
+    if (candidates.isEmpty) return false;
+    final r = await found.future;
+    client.close();
+    if (r == null) return false;
+    await save(r['url']!, r['token']!);
+    return true;
   }
 
   Future<String> health() async => (await _send('GET', '/health')).toString();

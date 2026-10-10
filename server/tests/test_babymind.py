@@ -84,3 +84,13 @@ def test_api_flow(client):
     assert "150ml" in client.post("/ask", json={"question": "오늘 얼마나 먹었어?"}, headers=h).json()["answer"]
     assert client.delete(f"/events/{events[0]['id']}", headers=h).json() == {"ok": True}
     assert len(client.get("/events", headers=h).json()) == 1
+
+
+def test_pair_only_on_lan(client):
+    from fastapi.testclient import TestClient
+    import main
+    assert client.get("/pair").status_code == 403
+    lan = TestClient(main.app, client=("192.168.0.23", 50000))
+    assert lan.get("/pair").json() == {"app": "babymind", "token": "secret"}
+    assert lan.get("/pair", headers={"CF-Connecting-IP": "1.2.3.4"}).status_code == 403
+    assert TestClient(main.app, client=("127.0.0.1", 50000)).get("/pair").status_code == 403

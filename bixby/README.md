@@ -16,13 +16,11 @@
 
 Bixby는 삼성 클라우드에서 서버를 호출하므로 `192.168.x.x` 같은 집 내부 주소로는 닿지 않습니다.
 
-1. `server/.env`에 긴 임의 문자열로 `BABYMIND_TOKEN=...` 설정 (앱 설정 화면에도 같은 값 입력)
-2. 집 PC에서 Cloudflare Tunnel 실행 (무료, 공유기 포트 개방 불필요):
-   ```bash
-   cloudflared tunnel --url http://localhost:8000
-   ```
-   출력되는 `https://xxxx.trycloudflare.com` 주소가 공개 주소입니다.
-   (임시 주소는 재실행 때마다 바뀜 → 계속 쓰려면 Cloudflare 계정으로 고정 터널 생성, 또는 클라우드 서버에 배포)
+1. `server/.env`에서 `TUNNEL=1` 로 바꾸고 `start_server.bat` 재실행
+   → cloudflared가 자동 설치되고 서버 창에 `공개 주소(Bixby용) : https://xxxx.trycloudflare.com` 이 표시됩니다.
+   인증 키(`BABYMIND_TOKEN`)는 첫 실행 때 이미 자동 생성되어 있습니다.
+2. 임시 주소는 재실행할 때마다 바뀝니다. 고정하려면 Cloudflare 계정에서 터널을 만들고
+   `.env`에 `CLOUDFLARE_TUNNEL_TOKEN`, `PUBLIC_URL`을 넣으면 같은 주소로 자동 연결됩니다.
 3. 확인:
    ```bash
    curl -X POST https://xxxx.trycloudflare.com/log \

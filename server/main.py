@@ -1,10 +1,11 @@
+import ipaddress
 import json
 import os
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
 load_dotenv()
@@ -66,7 +67,22 @@ def summarize(events: list[dict]) -> dict:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "openai": bool(os.getenv("OPENAI_API_KEY")), "auth": bool(os.getenv("BABYMIND_TOKEN"))}
+    return {"ok": True, "app": "babymind", "openai": bool(os.getenv("OPENAI_API_KEY")),
+            "auth": bool(os.getenv("BABYMIND_TOKEN"))}
+
+
+@app.get("/pair")
+def pair(request: Request):
+    """같은 Wi-Fi의 앱이 서버를 자동으로 찾아 인증 키를 받아가는 용도.
+    인터넷(Cloudflare 터널)을 거친 요청이나 PC 자신(터널이 들어오는 경로)에는 알려주지 않는다."""
+    try:
+        ip = ipaddress.ip_address(request.client.host if request.client else "")
+    except ValueError:
+        ip = None
+    via_tunnel = any(h.lower().startswith("cf-") for h in request.headers)
+    if ip is None or ip.is_loopback or not ip.is_private or via_tunnel:
+        raise HTTPException(403, "같은 Wi-Fi에서만 연결할 수 있습니다.")
+    return {"app": "babymind", "token": os.getenv("BABYMIND_TOKEN", "")}
 
 
 @app.post("/log", dependencies=auth)

@@ -60,11 +60,28 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   Future<void> _start() async {
     await api.load();
-    if (!api.configured) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _openSettings());
+    if (!await _reachable()) {
+      // 처음 실행이거나 PC 주소가 바뀐 경우: 같은 Wi-Fi에서 서버 자동 검색
+      setState(() => status = '같은 Wi-Fi에서 BabyMind 서버를 찾는 중…');
+      if (await api.discover()) {
+        setState(() => status = '✓ 서버를 찾았어요 (${api.baseUrl})');
+      } else if (mounted) {
+        setState(() => status = '서버를 찾지 못했어요. PC에서 start_server를 실행했는지 확인해 주세요.');
+        if (!api.configured) WidgetsBinding.instance.addPostFrameCallback((_) => _openSettings());
+      }
     }
     await refresh();
     _startPolling();
+  }
+
+  Future<bool> _reachable() async {
+    if (!api.configured) return false;
+    try {
+      await api.summary();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // 스피커(Bixby)로 들어온 기록이 앱에 바로 보이도록 화면이 켜져 있는 동안 주기적으로 새로고침
@@ -470,6 +487,17 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> autoFind() async {
+    setState(() => result = '찾는 중… (최대 몇 초)');
+    if (await widget.api.discover()) {
+      url.text = widget.api.baseUrl;
+      token.text = widget.api.token;
+      setState(() => result = '✓ 서버를 찾아 자동 설정했어요');
+    } else {
+      setState(() => result = '✗ 찾지 못했어요. PC에서 start_server를 실행했는지, 같은 Wi-Fi인지 확인해 주세요.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -493,7 +521,13 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         const SizedBox(height: 16),
-        FilledButton(onPressed: saveAndTest, child: const Text('저장하고 연결 확인')),
+        FilledButton.icon(
+          onPressed: autoFind,
+          icon: const Icon(Icons.wifi_find),
+          label: const Text('같은 Wi-Fi에서 자동으로 찾기'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(onPressed: saveAndTest, child: const Text('직접 입력한 값으로 저장·확인')),
         const SizedBox(height: 12),
         Text(result),
         const SizedBox(height: 24),
