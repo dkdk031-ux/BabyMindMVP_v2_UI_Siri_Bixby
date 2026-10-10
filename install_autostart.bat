@@ -15,4 +15,7 @@ netsh advfirewall firewall show rule name="BabyMind 8000" >nul 2>nul || (
 echo.
 echo 지금 바로 서버를 시작합니다...
 start "BabyMind" /min cmd /c ""%~dp0start_server.bat""
+echo.
+echo 서버는 작업표시줄의 "BabyMind" 창에서 실행 중입니다. (그 창은 닫지 마세요)
+echo 이 창은 아무 키나 눌러 닫아도 됩니다.
 pause
