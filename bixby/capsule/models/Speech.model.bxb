@@ -1,0 +1,3 @@
+text (Speech) {
+  description (스피커가 읽어줄 응답)
+}

@@ -1,0 +1,16 @@
+// 초안: Bixby Developer Studio에서 열어 target/runtime 버전은 Studio가 제안하는 값으로 맞추세요.
+capsule {
+  id (babymind.babylog)
+  version (0.1.0)
+  format (3)
+  targets {
+    target (bixby-mobile-ko-KR)
+  }
+  runtime-flags {
+    concepts-inherit-super-type-features
+    modern-prompt-rejection
+    support-halt-effect-in-computed-inputs
+    no-filtering-with-validation
+  }
+  store-sections { section (Lifestyle) }
+}

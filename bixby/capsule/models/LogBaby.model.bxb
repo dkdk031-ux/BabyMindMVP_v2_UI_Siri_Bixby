@@ -1,0 +1,11 @@
+action (LogBaby) {
+  type (Search)
+  description (육아 기록을 BabyMind 서버에 저장)
+  collect {
+    input (text) {
+      type (LogText)
+      min (Required) max (One)
+    }
+  }
+  output (LogResult)
+}

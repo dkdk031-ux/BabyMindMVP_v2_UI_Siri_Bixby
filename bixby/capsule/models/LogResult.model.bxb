@@ -1,0 +1,6 @@
+structure (LogResult) {
+  property (speech) {
+    type (Speech)
+    min (Required) max (One)
+  }
+}

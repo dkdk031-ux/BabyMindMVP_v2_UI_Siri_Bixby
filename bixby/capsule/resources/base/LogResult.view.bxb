@@ -1,0 +1,6 @@
+result-view {
+  match: LogResult (result)
+  message {
+    template ("#{value(result.speech)}")
+  }
+}
