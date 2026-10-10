@@ -74,13 +74,14 @@ def health():
 @app.get("/pair")
 def pair(request: Request):
     """같은 Wi-Fi의 앱이 서버를 자동으로 찾아 인증 키를 받아가는 용도.
-    인터넷(Cloudflare 터널)을 거친 요청이나 PC 자신(터널이 들어오는 경로)에는 알려주지 않는다."""
+    인터넷(Cloudflare 터널)을 거친 요청에는 알려주지 않는다."""
     try:
         ip = ipaddress.ip_address(request.client.host if request.client else "")
     except ValueError:
         ip = None
     via_tunnel = any(h.lower().startswith("cf-") for h in request.headers)
-    if ip is None or ip.is_loopback or not ip.is_private or via_tunnel:
+    # PC 자신(브라우저 앱)은 허용. 터널 요청은 cf- 헤더가 붙고, uvicorn이 실제 접속 IP로 바꿔주므로 걸러진다.
+    if ip is None or not (ip.is_private or ip.is_loopback) or via_tunnel:
         raise HTTPException(403, "같은 Wi-Fi에서만 연결할 수 있습니다.")
     return {"app": "babymind", "token": os.getenv("BABYMIND_TOKEN", "")}
 
@@ -162,3 +163,19 @@ def ask(req: AskIn):
         return {"answer": r.output_text}
     except Exception:
         return {"answer": summary_speech(today)}
+
+
+def _web_dir() -> str | None:
+    """Flutter 웹 빌드(앱 화면)를 찾아 http://localhost:8000 에서 보여준다."""
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    for d in (os.getenv("WEB_DIR"), os.path.join(getattr(sys, "_MEIPASS", here), "web"),
+              os.path.join(here, "..", "app", "build", "web")):
+        if d and os.path.exists(os.path.join(d, "index.html")):
+            return d
+    return None
+
+
+if _web_dir():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=_web_dir(), html=True), name="web")

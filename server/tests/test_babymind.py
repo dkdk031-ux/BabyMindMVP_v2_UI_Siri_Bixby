@@ -93,4 +93,5 @@ def test_pair_only_on_lan(client):
     lan = TestClient(main.app, client=("192.168.0.23", 50000))
     assert lan.get("/pair").json() == {"app": "babymind", "token": "secret"}
     assert lan.get("/pair", headers={"CF-Connecting-IP": "1.2.3.4"}).status_code == 403
-    assert TestClient(main.app, client=("127.0.0.1", 50000)).get("/pair").status_code == 403
+    assert TestClient(main.app, client=("127.0.0.1", 50000)).get("/pair").status_code == 200
+    assert TestClient(main.app, client=("8.8.8.8", 50000)).get("/pair").status_code == 403

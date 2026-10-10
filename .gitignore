@@ -17,3 +17,7 @@ app/android/app/key.properties
 .idea/
 server/tools/
 server/connection.txt
+server/web/
+server/build/
+server/dist/
+*.spec

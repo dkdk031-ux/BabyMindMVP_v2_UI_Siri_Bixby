@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -136,7 +137,9 @@ class Api {
   /// 같은 Wi-Fi 안에서 BabyMind 서버를 찾아 주소와 인증 키를 자동 저장. 찾으면 true.
   Future<bool> discover({int port = 8000}) async {
     final prefixes = <String>{};
-    for (final nic in await NetworkInterface.list(type: InternetAddressType.IPv4)) {
+    // PC 브라우저에서 열었으면 앱 화면을 준 서버가 곧 BabyMind 서버
+    final webOrigin = kIsWeb ? Uri.base.origin : null;
+    for (final nic in kIsWeb ? <NetworkInterface>[] : await NetworkInterface.list(type: InternetAddressType.IPv4)) {
       for (final a in nic.addresses) {
         final p = a.address.split('.');
         final first = int.parse(p[0]), second = int.parse(p[1]);
@@ -146,7 +149,8 @@ class Api {
     }
     // 이전에 쓰던 주소가 있으면 먼저 확인
     final candidates = <String>[
-      if (baseUrl.isNotEmpty) baseUrl,
+      ?webOrigin,
+      if (baseUrl.isNotEmpty && baseUrl != webOrigin) baseUrl,
       for (final pre in prefixes) for (var i = 1; i < 255; i++) 'http://$pre.$i:$port',
     ];
     final found = Completer<Map<String, String>?>();

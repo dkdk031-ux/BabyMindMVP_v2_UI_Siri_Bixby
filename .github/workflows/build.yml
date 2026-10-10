@@ -1,4 +1,4 @@
-name: Build APK
+name: Build BabyMind
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       - run: pip install -r server/requirements.txt
       - run: python -m pytest -q server/tests
 
-  apk:
+  flutter:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +37,14 @@ jobs:
           flutter pub get
           flutter analyze
           flutter test
+      # PC 브라우저용 앱 화면 (서버가 http://localhost:8000 에서 제공)
+      - name: Build web
+        working-directory: app
+        run: flutter build web --release --no-web-resources-cdn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: app/build/web
       # (선택) Secrets에 ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD 를 넣으면
       # 항상 같은 서명 → 새 APK를 기존 앱 위에 덮어 설치 가능
       - name: Restore signing key
@@ -53,15 +61,75 @@ jobs:
         run: flutter build apk --release --build-number=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
-          name: babymind-apk
+          name: apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
-      # 휴대폰에서 바로 받을 수 있게 'latest-apk' 릴리스를 최신 빌드로 교체
-      - name: Publish latest-apk release
+
+  windows:
+    needs: [server-test, flutter]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: server/web
+      - name: Build BabyMind.exe
+        working-directory: server
+        run: |
+          pip install -r requirements.txt pyinstaller
+          pyinstaller --noconfirm --onefile --console --name BabyMind `
+            --add-data "web;web" --add-data ".env.example;." `
+            --collect-data tzdata --collect-submodules uvicorn `
+            --hidden-import main --hidden-import db --hidden-import parser `
+            run.py
+      # 실제 Windows에서 설치 → 자동 실행 등록 → 서버 기동 → 기록 저장까지 확인
+      - name: Smoke test (install + record)
+        shell: pwsh
+        run: |
+          Start-Process -FilePath server\dist\BabyMind.exe
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep 2
+            try { $h = Invoke-RestMethod http://127.0.0.1:8000/health; if ($h.app -eq 'babymind') { $ok = $true; break } } catch {}
+          }
+          if (-not $ok) { throw "server did not start" }
+          $data = "$env:LOCALAPPDATA\BabyMind"
+          if (-not (Test-Path "$data\BabyMind.exe")) { throw "not installed" }
+          if (-not (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\BabyMind.bat")) { throw "autostart not registered" }
+          $token = (Get-Content "$data\.env" | Where-Object { $_ -like 'BABYMIND_TOKEN=*' }) -replace 'BABYMIND_TOKEN=',''
+          $body = @{ text = '우리애기 11시10분에 500ml 분유 먹었어'; source = 'test' } | ConvertTo-Json
+          $r = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/log -Headers @{ 'X-API-Key' = $token } `
+                 -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
+          Write-Output $r.speech
+          if ($r.events[0].amount -ne 500) { throw "parse failed" }
+          $page = Invoke-WebRequest http://127.0.0.1:8000/ -UseBasicParsing
+          if ($page.Content -notmatch 'flutter') { throw "web app not served" }
+          Stop-Process -Name BabyMind -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: server/dist/BabyMind.exe
+
+  release:
+    needs: [windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      # 'latest' 릴리스를 최신 빌드로 교체 (PC: BabyMind.exe / 휴대폰: BabyMind.apk)
+      - name: Publish latest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/app/outputs/flutter-apk/app-release.apk BabyMind.apk
+          cp dist/apk/app-release.apk BabyMind.apk
+          cp dist/exe/BabyMind.exe BabyMind.exe
           gh release delete latest-apk --cleanup-tag -y || true
-          gh release create latest-apk BabyMind.apk --target "$GITHUB_SHA" --prerelease \
-            --title "BabyMind 최신 APK (#${{ github.run_number }})" \
-            --notes "브랜치: ${GITHUB_REF_NAME} / 커밋: ${GITHUB_SHA::7}. 휴대폰에서 BabyMind.apk 를 눌러 설치하세요."
+          gh release delete latest --cleanup-tag -y || true
+          gh release create latest BabyMind.exe BabyMind.apk --target "$GITHUB_SHA" \
+            --title "BabyMind 최신 버전 (#${{ github.run_number }})" \
+            --notes "PC: BabyMind.exe 를 받아 더블클릭 (처음 한 번만). 휴대폰: BabyMind.apk 를 눌러 설치. 커밋 ${GITHUB_SHA::7}"
